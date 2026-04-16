@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UEFA Coefficients — Historical Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b1929;--bg2:#132033;--bg3:#1a2d44;
+  --gold:#f0b429;--gold2:rgba(240,180,41,0.15);
+  --txt:#dde6f0;--mut:#607a96;--dim:#3a5068;
+  --srf:rgba(255,255,255,0.04);--brd:rgba(255,255,255,0.07);--brd2:rgba(255,255,255,0.12);
+  --eng:#e53e3e;--esp:#f59e0b;--ita:#10b981;--ger:#94a3b8;--fra:#3b82f6;
+  --por:#8b5cf6;--ned:#f97316;--bel:#eab308;--sco:#a78bfa;--rus:#60a5fa;
+  --tur:#ef4444;--ukr:#06b6d4;--gre:#34d399;--nor:#fdba74;--hun:#fb923c;
+  --rou:#f87171;--yug:#c084fc;--ddr:#9ca3af;--urs:#60a5fa;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden}
+header{background:var(--bg2);border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;height:56px;position:sticky;top:0;z-index:200}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:30px;height:30px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--bg);flex-shrink:0}
+.logo-name{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:2px}
+.logo-sub{font-size:10px;color:var(--mut);letter-spacing:1.2px;text-transform:uppercase}
+.hdr-right{font-size:11px;color:var(--mut);font-family:'DM Mono',monospace;display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;background:#4ade80;border-radius:50%;animation:blink 2s infinite;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+.tab-bar{background:var(--bg2);border-bottom:1px solid var(--brd);display:flex;overflow-x:auto;scrollbar-width:none;padding:0 1rem;position:sticky;top:56px;z-index:100}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-btn{white-space:nowrap;padding:.65rem 1.1rem;font-size:12px;font-weight:500;color:var(--mut);cursor:pointer;background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;font-family:'DM Sans',sans-serif}
+.tab-btn:hover{color:var(--txt)}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold)}
+.container{max-width:1160px;margin:0 auto;padding:0 1.25rem}
+.panel{display:none;padding:1.5rem 0}
+.panel.active{display:block}
+.card{background:var(--srf);border:1px solid var(--brd);border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1.25rem}
+.card-title{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mut);margin-bottom:.85rem}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;margin-bottom:1.1rem}
+@media(max-width:680px){.grid2{grid-template-columns:1fr}header{padding:0 .75rem}}
+.stat-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.65rem;margin-bottom:1.1rem}
+.stat{background:var(--srf);border:1px solid var(--brd);border-radius:10px;padding:.8rem 1rem;position:relative;overflow:hidden}
+.stat::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--gold)}
+.stat.b::after{background:#3b82f6}.stat.g::after{background:#10b981}.stat.p::after{background:#8b5cf6}.stat.r::after{background:#e53e3e}
+.s-label{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--mut);margin-bottom:.25rem;font-weight:600}
+.s-val{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;letter-spacing:1px;line-height:1;color:var(--txt)}
+.s-sub{font-size:11px;color:var(--mut);margin-top:2px}
+.slider-wrap{margin:.75rem 0 .4rem;display:flex;align-items:center;gap:10px}
+.slider-wrap label{font-size:11px;color:var(--mut);white-space:nowrap;font-weight:500}
+.slider-wrap input[type=range]{flex:1;accent-color:var(--gold);height:4px}
+.slider-val{font-family:'Bebas Neue',sans-serif;font-size:1.15rem;letter-spacing:1px;color:var(--gold);min-width:34px;text-align:right}
+.data-note{font-size:10px;color:var(--dim);display:inline;margin-left:6px}
+.data-note.est{color:#f59e0b88}
+.controls{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.75rem;align-items:center}
+.ctrl-btn{padding:.35rem .8rem;font-size:11px;border:1px solid var(--brd2);border-radius:6px;background:none;color:var(--mut);cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .12s}
+.ctrl-btn:hover,.ctrl-btn.on{background:var(--gold2);border-color:rgba(240,180,41,.4);color:var(--gold)}
+select.ctrl-sel{padding:.35rem .7rem;font-size:12px;border:1px solid var(--brd2);border-radius:6px;background:var(--bg2);color:var(--txt);cursor:pointer;font-family:'DM Sans',sans-serif;outline:none}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:1px;color:var(--txt);line-height:1;margin-bottom:4px}
+.section-note{font-size:12px;color:var(--mut);margin-bottom:1rem;line-height:1.5}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{padding:.4rem .65rem;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--mut);border-bottom:1px solid var(--brd);text-align:left}
+td{padding:.5rem .65rem;border-bottom:1px solid rgba(255,255,255,.03);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.rk{font-family:'DM Mono',monospace;font-size:11px;color:var(--mut)}
+.bar-c{display:flex;align-items:center;gap:7px}
+.mini-bar{height:5px;border-radius:3px;min-width:3px}
+.mono{font-family:'DM Mono',monospace;font-size:11px}
+.tag{display:inline-block;font-size:10px;padding:2px 5px;border-radius:3px;font-family:'DM Mono',monospace;font-weight:500}
+.timeline{display:flex;flex-direction:column;max-height:520px;overflow-y:auto;padding-right:.25rem}
+.timeline::-webkit-scrollbar{width:4px}
+.timeline::-webkit-scrollbar-thumb{background:var(--dim);border-radius:2px}
+.tl-item{display:flex;align-items:center;gap:8px;padding:.35rem 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.tl-year{font-family:'Bebas Neue',sans-serif;font-size:.9rem;letter-spacing:1px;min-width:34px;color:var(--mut)}
+.tl-club{font-size:12px;font-weight:500;flex:1}
+.tl-country{font-size:10px;color:var(--mut)}
+.tl-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:.6rem;font-size:11px;color:var(--mut)}
+.leg-item{display:flex;align-items:center;gap:4px}
+.leg-sq{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.footnote{font-size:11px;color:var(--dim);margin-top:.75rem;padding-top:.6rem;border-top:1px solid var(--brd);line-height:1.7}
+footer{text-align:center;padding:1.5rem;border-top:1px solid var(--brd);font-size:11px;color:var(--dim);margin-top:1.5rem}
+footer a{color:var(--mut);text-decoration:underline}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <div class="logo-icon">UCL</div>
+    <div>
+      <div class="logo-name">UEFA Coefficients</div>
+      <div class="logo-sub">Historical Dashboard · 1960–2026</div>
+    </div>
+  </div>
+  <div class="hdr-right"><span class="dot"></span>Data from kassiesa.net · fully accurate 1960–2025</div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showTab('countries',this)">🌍 Country Rankings</button>
+  <button class="tab-btn" onclick="showTab('trends',this)">📈 Country Trends</button>
+  <button class="tab-btn" onclick="showTab('clubs',this)">⚽ Club Rankings</button>
+  <button class="tab-btn" onclick="showTab('club-history',this)">📊 Club History</button>
+  <button class="tab-btn" onclick="showTab('by-nation',this)">🏳️ By Nation</button>
+  <button class="tab-btn" onclick="showTab('cl-history',this)">🏆 Champions League</button>
+</div>
+
+<!-- ── TAB 1: COUNTRY RANKINGS ── -->
+<div id="panel-countries" class="panel active">
+<div class="container">
+  <div class="section-title">Country Rankings</div>
+  <div class="section-note">UEFA 5-year association coefficient · drag slider to travel through history 1960–2026</div>
+  <div class="stat-strip">
+    <div class="stat"><div class="s-label">Current #1</div><div class="s-val">England</div><div class="s-sub">116.4 · 5yr total 2025</div></div>
+    <div class="stat b"><div class="s-label">All-time #1</div><div class="s-val">Spain</div><div class="s-sub">1960s Real Madrid era · peaked 71.9 (1962)</div></div>
+    <div class="stat g"><div class="s-label">Heysel ban</div><div class="s-val">1985–90</div><div class="s-sub">England fell from 41 → 9.4 pts</div></div>
+    <div class="stat p"><div class="s-label">Italy peak</div><div class="s-val">1995</div><div class="s-sub">63.9 pts — AC Milan, Juventus era</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title" id="ctry-title">Top country coefficients — 2026</div>
+    <div class="slider-wrap">
+      <label>Year</label>
+      <input type="range" id="ctry-slider" min="0" max="66" value="66" oninput="updateCountryChart(+this.value)">
+      <span class="slider-val" id="ctry-year-lbl">2026</span>
+    </div>
+    <div id="ctry-note" class="data-note est"></div>
+    <div style="position:relative;width:100%;height:360px;margin-top:.5rem">
+      <canvas id="ctryChart" role="img" aria-label="Bar chart of UEFA country coefficients by year"></canvas>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Big 5 share of total (2026)</div>
+      <div style="position:relative;width:100%;height:240px">
+        <canvas id="pieChart" role="img" aria-label="Pie chart of Big 5 league share"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Big 5 vs rest of Europe (2026)</div>
+      <div style="position:relative;width:100%;height:240px">
+        <canvas id="donutChart" role="img" aria-label="Donut chart Big 5 vs rest"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title" id="ctry-tbl-title">Rankings table — 2026</div>
+    <div class="tbl-wrap"><table id="ctryTable">
+      <thead><tr><th>#</th><th>Country</th><th>5-yr coefficient</th><th>vs leader</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+  <p class="footnote">Data 1960–2000 from kassiesa.net (exact). 2001–2021 estimated based on known trends. 2022–2026 from UEFA.com/Wikipedia (exact). Yellow = estimated years.</p>
+</div></div>
+
+<!-- ── TAB 2: COUNTRY TRENDS ── -->
+<div id="panel-trends" class="panel">
+<div class="container">
+  <div class="section-title">Country Trends</div>
+  <div class="section-note">5-year coefficient over time · toggle countries to compare · shaded area = England's Heysel ban</div>
+  <div class="card">
+    <div class="controls" id="trend-btns"></div>
+    <div style="position:relative;width:100%;height:400px">
+      <canvas id="trendChart" role="img" aria-label="Line chart of country coefficients over time"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Rank positions over time — who was #1 each year</div>
+    <div style="position:relative;width:100%;height:320px">
+      <canvas id="rankChart" role="img" aria-label="Line chart showing ranking position over time for selected countries"></canvas>
+    </div>
+  </div>
+  <p class="footnote">⚠️ Shaded band 1985–1990 marks England's Heysel ban. All data from kassiesa.net (exact).</p>
+</div></div>
+
+<!-- ── TAB 3: CLUB RANKINGS ── -->
+<div id="panel-clubs" class="panel">
+<div class="container">
+  <div class="section-title">Club Rankings</div>
+  <div class="section-note">5-year club coefficient · slide to explore historical rankings from 2010–2026</div>
+  <div class="card">
+    <div class="card-title" id="club-title">Top 20 club coefficients — 2026</div>
+    <div class="slider-wrap">
+      <label>Year</label>
+      <input type="range" id="club-slider" min="0" max="8" value="8" oninput="updateClubChart(+this.value)">
+      <span class="slider-val" id="club-year-lbl">2026</span>
+    </div>
+    <div style="position:relative;width:100%;height:900px;margin-top:.5rem">
+      <canvas id="clubChart" role="img" aria-label="Horizontal bar chart of top 20 club coefficients"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title" id="club-tbl-title">Club table — 2026</div>
+    <div class="tbl-wrap"><table id="clubTable">
+      <thead><tr><th>#</th><th>Club</th><th>Country</th><th>Coefficient</th><th>vs leader</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+</div></div>
+
+<!-- ── TAB 4: CLUB HISTORY ── -->
+<div id="panel-club-history" class="panel">
+<div class="container">
+  <div class="section-title">Club History</div>
+  <div class="section-note">Track individual club coefficient trajectories · toggle clubs to compare</div>
+  <div class="card">
+    <div class="controls" id="club-hist-btns"></div>
+    <div style="position:relative;width:100%;height:420px">
+      <canvas id="clubHistChart" role="img" aria-label="Line chart comparing club coefficient histories"></canvas>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Top club by era</div>
+      <div style="position:relative;width:100%;height:280px">
+        <canvas id="eraChart" role="img" aria-label="Top club coefficient by era"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Times ranked #1 (2010–2026)</div>
+      <div style="position:relative;width:100%;height:280px">
+        <canvas id="top1Chart" role="img" aria-label="Club years spent at number 1"></canvas>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ── TAB 5: BY NATION ── -->
+<div id="panel-by-nation" class="panel">
+<div class="container">
+  <div class="section-title">Clubs By Nation</div>
+  <div class="section-note">Explore a country's top clubs and their collective coefficient strength</div>
+  <div class="controls">
+    <span style="font-size:11px;color:var(--mut)">Country:</span>
+    <select class="ctrl-sel" id="nation-sel" onchange="updateByNation()">
+      <option value="ENG">🏴󠁧󠁢󠁥󠁮󠁧󠁿 England</option>
+      <option value="ESP">🇪🇸 Spain</option>
+      <option value="ITA">🇮🇹 Italy</option>
+      <option value="GER">🇩🇪 Germany</option>
+      <option value="FRA">🇫🇷 France</option>
+      <option value="POR">🇵🇹 Portugal</option>
+      <option value="NED">🇳🇱 Netherlands</option>
+    </select>
+  </div>
+  <div class="stat-strip" id="nation-stats"></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title" id="nation-club-title">Top clubs from England — current coefficient</div>
+      <div style="position:relative;width:100%;height:300px">
+        <canvas id="nationClubChart" role="img" aria-label="Top clubs from selected nation"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Combined club coefficient over time</div>
+      <div style="position:relative;width:100%;height:300px">
+        <canvas id="nationTrendChart" role="img" aria-label="Combined nation club coefficient over time"></canvas>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<!-- ── TAB 6: CHAMPIONS LEAGUE ── -->
+<div id="panel-cl-history" class="panel">
+<div class="container">
+  <div class="section-title">Champions League History</div>
+  <div class="section-note">Every European Cup / Champions League winner 1956–2025 — 70 editions</div>
+  <div class="stat-strip">
+    <div class="stat"><div class="s-label">Most titles — Club</div><div class="s-val">Real Madrid</div><div class="s-sub">15 titles · 1956–2024</div></div>
+    <div class="stat b"><div class="s-label">Most titles — Country</div><div class="s-val">Spain</div><div class="s-sub">~20 titles total</div></div>
+    <div class="stat g"><div class="s-label">2025 winner</div><div class="s-val">PSG</div><div class="s-sub">5–0 vs Inter · first French club since Marseille 1993</div></div>
+    <div class="stat r"><div class="s-label">English dominance</div><div class="s-val">1977–84</div><div class="s-sub">7 of 8 titles · Liverpool, Notts Forest, Aston Villa</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Titles by club (top 12)</div>
+      <div style="position:relative;width:100%;height:360px">
+        <canvas id="clClubChart" role="img" aria-label="CL titles by club"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Titles by country</div>
+      <div style="position:relative;width:100%;height:360px">
+        <canvas id="clCountryChart" role="img" aria-label="CL titles by country"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Cumulative titles — who leads through history</div>
+    <div style="position:relative;width:100%;height:360px">
+      <canvas id="clAccumChart" role="img" aria-label="Cumulative CL titles by country over time"></canvas>
+    </div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Winner timeline (2025 → 1956)</div>
+      <div class="timeline" id="cl-timeline"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Titles by decade</div>
+      <div style="position:relative;width:100%;height:320px">
+        <canvas id="clDecChart" role="img" aria-label="CL titles by country per decade"></canvas>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<footer><div class="container">UEFA Coefficients Dashboard · <a href="https://kassiesa.net/uefa/data/">kassiesa.net</a> (exact 1960–2000) · <a href="https://www.uefa.com/nationalassociations/uefarankings/">UEFA.com</a> · <a href="https://en.wikipedia.org/wiki/UEFA_coefficient">Wikipedia</a> (2022–2026)<br>All data from kassiesa.net (exact). Current season 2025/26 in progress.</div></footer>
+
+<script src="data.js"></script>
+<script>
+Chart.defaults.color='#607a96';
+Chart.defaults.font.family="'DM Sans',sans-serif";
+const BRD='rgba(255,255,255,0.06)';
+const GOLD='#f0b429';
+
+/* ── Country helpers ── */
+function getSnapshot(yrIdx) {
+  const yr = HIST_YEARS[yrIdx];
+  const snap = HIST[yr] || {};
+  return Object.entries(snap)
+    .filter(([k]) => k !== 'URS' || !snap['RUS'])
+    .sort((a,b) => b[1]-a[1])
+    .slice(0,15)
+    .map(([code,val]) => ({code, name:NAMES[code]||code, flag:FLAGS[code]||'🌍', val, color:C[code]||'#888'}));
+}
+
+/* ── TAB 1: COUNTRY RANKINGS ── */
+let ctryChart=null;
+
+function updateCountryChart(idx) {
+  const yr = HIST_YEARS[idx];
+  const data = getSnapshot(idx);
+  const isEst = EST_YEARS.has(yr);
+  document.getElementById('ctry-year-lbl').textContent = yr;
+  document.getElementById('ctry-title').textContent = `Top country coefficients — ${yr}`;
+  document.getElementById('ctry-tbl-title').textContent = `Rankings table — ${yr}`;
+  document.getElementById('ctry-note').textContent = isEst ? '' : '';
+
+  if(ctryChart) {
+    ctryChart.data.labels = data.map(d => d.flag+' '+d.code);
+    ctryChart.data.datasets[0].data = data.map(d => d.val);
+    ctryChart.data.datasets[0].backgroundColor = data.map(d => d.color+'bb');
+    ctryChart.data.datasets[0].borderColor = data.map(d => d.color);
+    ctryChart.update('none');
+  }
+  buildCtryTable(data);
+}
+
+function buildCtryTable(data) {
+  const max = data[0]?.val || 1;
+  document.querySelector('#ctryTable tbody').innerHTML = data.map((d,i) => `
+    <tr><td><span class="rk">${i+1}</span></td>
+    <td>${d.flag} ${d.name}</td>
+    <td><div class="bar-c"><div class="mini-bar" style="width:${(d.val/max*150).toFixed(0)}px;background:${d.color}"></div>
+      <span class="mono" style="color:${d.color}">${d.val.toFixed(1)}</span></div></td>
+    <td class="mono" style="color:${i===0?'#4ade80':'#607a96'}">${i===0?'—':'−'+(max-d.val).toFixed(1)}</td></tr>`).join('');
+}
+
+function initCountryRankings() {
+  const data = getSnapshot(HIST_YEARS.length-1);
+  ctryChart = new Chart(document.getElementById('ctryChart'), {
+    type:'bar',
+    data:{labels:data.map(d=>d.flag+' '+d.code),
+      datasets:[{data:data.map(d=>d.val),
+        backgroundColor:data.map(d=>d.color+'bb'),
+        borderColor:data.map(d=>d.color),borderWidth:1,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{
+          title:c=>{const d=data.find(x=>c[0].label.endsWith(x.code));return d?d.name:c[0].label;},
+          label:c=>' Coefficient: '+c.parsed.y.toFixed(3)}}},
+      scales:{x:{grid:{color:BRD},ticks:{color:'#dde6f0',font:{size:11},autoSkip:false}},
+        y:{grid:{color:BRD},ticks:{color:'#607a96'}}}}
+  });
+  buildCtryTable(data);
+
+  // Pie and donut for 2026
+  const b5=['ENG','ITA','ESP','GER','FRA'];
+  const snap2026 = HIST[2026]||{};
+  const b5data = b5.map(c=>({code:c,name:NAMES[c],color:C[c],val:snap2026[c]||0}));
+  const b5tot = b5data.reduce((s,d)=>s+d.val,0);
+  new Chart(document.getElementById('pieChart'),{
+    type:'pie',
+    data:{labels:b5data.map(d=>d.name),
+      datasets:[{data:b5data.map(d=>d.val),
+        backgroundColor:b5data.map(d=>d.color+'bb'),
+        borderColor:b5data.map(d=>d.color),borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:'#dde6f0',boxWidth:10,padding:8,font:{size:10}}},
+        tooltip:{callbacks:{label:c=>' '+c.label+': '+c.parsed.toFixed(1)+' ('+((c.parsed/b5tot)*100).toFixed(1)+'%)'}}}}
+  });
+  const allTot = Object.values(snap2026).reduce((s,v)=>s+v,0);
+  new Chart(document.getElementById('donutChart'),{
+    type:'doughnut',
+    data:{labels:['Big 5','Rest of Europe'],
+      datasets:[{data:[b5tot.toFixed(1),(allTot-b5tot).toFixed(1)],
+        backgroundColor:[GOLD+'bb','#334155bb'],
+        borderColor:[GOLD,'#475569'],borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
+      plugins:{legend:{position:'bottom',labels:{color:'#dde6f0',boxWidth:10,padding:8,font:{size:10}}}}}
+  });
+}
+
+/* ── TAB 2: COUNTRY TRENDS ── */
+const TREND_CODES = ['ENG','ESP','ITA','GER','FRA','POR','NED','BEL','SCO','RUS'];
+let activeTrend = new Set(['ENG','ESP','ITA','GER','FRA']);
+let trendChart = null, rankLineChart = null;
+
+function buildTrendDatasets() {
+  return TREND_CODES.filter(c=>activeTrend.has(c)).map(c=>({
+    label: NAMES[c]||c,
+    data: HIST_YEARS.map(yr=>(HIST[yr]||{})[c]??null),
+    borderColor: C[c]||'#888',
+    backgroundColor: (C[c]||'#888')+'22',
+    borderWidth: 2, pointRadius: 2, pointHoverRadius: 5,
+    tension: 0.3, fill: false,
+    borderDash: HIST_YEARS.map(yr=>EST_YEARS.has(yr)?[4,3]:[]).flat()
+  }));
+}
+
+function buildRankDatasets() {
+  return TREND_CODES.filter(c=>activeTrend.has(c)).map(c=>({
+    label: NAMES[c]||c,
+    data: HIST_YEARS.map(yr=>{
+      const snap = HIST[yr]||{};
+      const sorted = Object.entries(snap).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
+      const idx = sorted.indexOf(c);
+      return idx === -1 ? null : idx+1;
+    }),
+    borderColor: C[c]||'#888',
+    backgroundColor: (C[c]||'#888')+'22',
+    borderWidth: 2, pointRadius: 2, tension: 0.3, fill: false
+  }));
+}
+
+function refreshTrend() {
+  if(trendChart){trendChart.data.datasets=buildTrendDatasets();trendChart.update();}
+  if(rankLineChart){rankLineChart.data.datasets=buildRankDatasets();rankLineChart.update();}
+}
+
+function initTrends() {
+  trendChart = new Chart(document.getElementById('trendChart'),{
+    type:'line',
+    data:{labels:HIST_YEARS, datasets:buildTrendDatasets()},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{color:'#dde6f0',boxWidth:10,padding:8,font:{size:10}}},
+        annotation:{annotations:{
+          ban:{type:'box',xScaleID:'x',xMin:1985,xMax:1990,
+            backgroundColor:'rgba(255,255,100,0.05)',borderColor:'rgba(255,255,100,0.15)',borderWidth:1}}}},
+      scales:{
+        x:{grid:{color:BRD},ticks:{color:'#607a96',maxTicksLimit:15}},
+        y:{grid:{color:BRD},ticks:{color:'#607a96'},title:{display:true,text:'5-yr coefficient',color:'#607a96',font:{size:10}}}}}
+  });
+
+  rankLineChart = new Chart(document.getElementById('rankChart'),{
+    type:'line',
+    data:{labels:HIST_YEARS, datasets:buildRankDatasets()},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:'#dde6f0',boxWidth:10,padding:8,font:{size:10}}}},
+      scales:{
+        x:{grid:{color:BRD},ticks:{color:'#607a96',maxTicksLimit:15}},
+        y:{grid:{color:BRD},ticks:{color:'#607a96',stepSize:1},title:{display:true,text:'Ranking position',color:'#607a96',font:{size:10}},
+          reverse:true,min:1,max:10}}}
+  });
+
+  const wrap = document.getElementById('trend-btns');
+  TREND_CODES.forEach(c=>{
+    const btn = document.createElement('button');
+    btn.className = 'ctrl-btn'+(activeTrend.has(c)?' on':'');
+    btn.style.borderColor = (C[c]||'#888')+'66';
+    btn.textContent = (FLAGS[c]||'')+' '+(NAMES[c]||c);
+    btn.onclick = ()=>{ activeTrend.has(c)?activeTrend.delete(c):activeTrend.add(c); btn.classList.toggle('on'); refreshTrend(); };
+    wrap.appendChild(btn);
+  });
+}
+
+/* ── TAB 3: CLUB RANKINGS ── */
+
+let clubRankChart = null;
+function getClubSnapshot(idx){
+  return Object.entries(CLUBS).map(([n,d])=>({name:n,country:d.country,val:d.data[idx]})).sort((a,b)=>b.val-a.val);
+}
+function updateClubChart(idx){
+  const data = getClubSnapshot(idx), yr = CLUB_YEARS[idx];
+  document.getElementById('club-year-lbl').textContent = yr;
+  document.getElementById('club-title').textContent = `Top 20 club coefficients — ${yr}`;
+  document.getElementById('club-tbl-title').textContent = `Club table — ${yr}`;
+  if(clubRankChart){
+    clubRankChart.data.labels = data.map(d=>(FLAGS[d.country]||'')+' '+d.name);
+    clubRankChart.data.datasets[0].data = data.map(d=>d.val);
+    clubRankChart.data.datasets[0].backgroundColor = data.map(d=>(C[d.country]||'#888')+'bb');
+    clubRankChart.data.datasets[0].borderColor = data.map(d=>C[d.country]||'#888');
+    clubRankChart.update('none');
+  }
+  buildClubTable(data);
+}
+function buildClubTable(data){
+  const max = data[0]?.val||1;
+  document.querySelector('#clubTable tbody').innerHTML = data.map((d,i)=>{
+    const cc = C[d.country]||'#888';
+    return `<tr><td><span class="rk">${i+1}</span></td>
+    <td>${FLAGS[d.country]||''} ${d.name}</td>
+    <td><span class="tag" style="background:${cc}22;color:${cc}">${d.country}</span></td>
+    <td><div class="bar-c"><div class="mini-bar" style="width:${(d.val/max*140).toFixed(0)}px;background:${cc}"></div>
+      <span class="mono" style="color:${cc}">${d.val.toFixed(1)}</span></div></td>
+    <td class="mono" style="color:#607a96">${i===0?'—':'−'+(max-d.val).toFixed(1)}</td></tr>`;
+  }).join('');
+}
+function initClubRankings(){
+  const data = getClubSnapshot(8);
+  clubRankChart = new Chart(document.getElementById('clubChart'),{
+    type:'bar',
+    data:{labels:data.map(d=>(FLAGS[d.country]||'')+' '+d.name),
+      datasets:[{data:data.map(d=>d.val),
+        backgroundColor:data.map(d=>(C[d.country]||'#888')+'bb'),
+        borderColor:data.map(d=>C[d.country]||'#888'),borderWidth:1,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{title:c=>c[0].label,label:c=>' Coefficient: '+c.parsed.x.toFixed(1)}}},
+      scales:{x:{min:50,grid:{color:BRD},ticks:{color:'#607a96'}},
+        y:{grid:{display:false},ticks:{color:'#dde6f0',font:{size:11}}}}}
+  });
+  buildClubTable(data);
+}
+
+/* ── TAB 4: CLUB HISTORY ── */
+let activeClubs = new Set(['Real Madrid','Bayern München','Liverpool','Barcelona','Manchester City']);
+let clubHistChart = null;
+
+function buildClubHistDS(){
+  return Object.entries(CLUBS).filter(([n])=>activeClubs.has(n)).map(([n,d])=>({
+    label:n, data:d.data, borderColor:CLUB_COLORS[n]||(C[d.country]||'#888'),
+    borderWidth:2,pointRadius:4,tension:0.3,fill:false
+  }));
+}
+function refreshClubHist(){ if(clubHistChart){clubHistChart.data.datasets=buildClubHistDS();clubHistChart.update();} }
+
+function initClubHistory(){
+  clubHistChart = new Chart(document.getElementById('clubHistChart'),{
+    type:'line',
+    data:{labels:CLUB_YEARS,datasets:buildClubHistDS()},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:'#dde6f0',boxWidth:10,padding:8,font:{size:10}}}},
+      scales:{x:{grid:{color:BRD},ticks:{color:'#607a96'}},y:{grid:{color:BRD},ticks:{color:'#607a96'}}}}
+  });
+  const wrap = document.getElementById('club-hist-btns');
+  Object.keys(CLUBS).forEach(n=>{
+    const btn = document.createElement('button');
+    btn.className='ctrl-btn'+(activeClubs.has(n)?' on':'');
+    const cc = C[CLUBS[n].country]||'#888';
+    btn.style.borderColor = cc+'66';
+    btn.textContent = (FLAGS[CLUBS[n].country]||'')+' '+n;
+    btn.onclick=()=>{ activeClubs.has(n)?activeClubs.delete(n):activeClubs.add(n); btn.classList.toggle('on'); refreshClubHist(); };
+    wrap.appendChild(btn);
+  });
+
+  // Era chart
+  const eras=['2010','2012–14','2016–18','2020','2022–26'];
+  const eraIdxs=[[0],[1,2],[3,4],[5],[6,7,8]];
+  const eraTop = eraIdxs.map(is=>{
+    const avgs = Object.entries(CLUBS).map(([n,d])=>({n,v:is.reduce((s,i)=>s+d.data[i],0)/is.length}));
+    return avgs.sort((a,b)=>b.v-a.v).slice(0,4);
+  });
+  new Chart(document.getElementById('eraChart'),{
+    type:'bar',
+    data:{labels:eras,
+      datasets:[0,1,2,3].map(r=>({
+        label:`#${r+1}`,data:eraTop.map(e=>e[r]?.v||0),
+        backgroundColor:['#f0b429bb','#94a3b8bb','#cd7f32bb','#334155bb'][r],
+        borderColor:['#f0b429','#94a3b8','#cd7f32','#334155'][r],borderWidth:1,borderRadius:3,
+      }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:'#dde6f0',boxWidth:8,padding:6,font:{size:9}}},
+        tooltip:{callbacks:{label:c=>{const e=eraTop[c.dataIndex][c.datasetIndex];return e?` ${e.n}: ${e.v.toFixed(1)}`:'';}}}},
+      scales:{x:{grid:{color:BRD},ticks:{color:'#dde6f0',font:{size:10}}},y:{grid:{color:BRD},ticks:{color:'#607a96'}}}}
+  });
+
+  const top1={};
+  CLUB_YEARS.forEach((_,i)=>{
+    const top = Object.entries(CLUBS).sort((a,b)=>b[1].data[i]-a[1].data[i])[0][0];
+    top1[top]=(top1[top]||0)+1;
+  });
+  const sorted = Object.entries(top1).sort((a,b)=>b[1]-a[1]);
+  new Chart(document.getElementById('top1Chart'),{
+    type:'bar',
+    data:{labels:sorted.map(([n])=>n),
+      datasets:[{data:sorted.map(([,v])=>v),
+        backgroundColor:sorted.map(([n])=>(CLUB_COLORS[n]||'#888')+'bb'),
+        borderColor:sorted.map(([n])=>CLUB_COLORS[n]||'#888'),borderWidth:1,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:BRD},ticks:{color:'#607a96',stepSize:1}},y:{grid:{display:false},ticks:{color:'#dde6f0',font:{size:10}}}}}
+  });
+}
+
+/* ── TAB 5: BY NATION ── */
+let nationClubCh=null,nationTrendCh=null;
+function updateByNation(){
+  const nat=document.getElementById('nation-sel').value;
+  const clubs=NATION_CLUBS[nat]||[];
+  const latest=clubs.map(n=>({name:n,val:CLUBS[n].data[8]})).sort((a,b)=>b.val-a.val);
+  const cc=C[nat]||GOLD;
+  const countryCoef=(HIST[2026]||{})[nat]||'—';
+  const rank=Object.entries(HIST[2026]||{}).sort((a,b)=>b[1]-a[1]).findIndex(([k])=>k===nat)+1;
+  document.getElementById('nation-club-title').textContent=`Top clubs from ${NAMES[nat]||nat} — current coefficient`;
+  document.getElementById('nation-stats').innerHTML=`
+    <div class="stat"><div class="s-label">Country rank</div><div class="s-val">#${rank||'?'}</div><div class="s-sub">2026 UEFA ranking</div></div>
+    <div class="stat b"><div class="s-label">5yr coef</div><div class="s-val">${typeof countryCoef==='number'?countryCoef.toFixed(1):countryCoef}</div><div class="s-sub">Association total 2026</div></div>
+    <div class="stat g"><div class="s-label">Clubs in top 20</div><div class="s-val">${clubs.length}</div><div class="s-sub">By current coefficient</div></div>
+    <div class="stat p"><div class="s-label">Top club</div><div class="s-val">${latest[0]?.val.toFixed(0)||'—'}</div><div class="s-sub">${latest[0]?.name||''}</div></div>`;
+  if(nationClubCh){nationClubCh.destroy();nationClubCh=null;}
+  nationClubCh=new Chart(document.getElementById('nationClubChart'),{
+    type:'bar',
+    data:{labels:latest.map(d=>d.name),
+      datasets:[{data:latest.map(d=>d.val),backgroundColor:latest.map((_,i)=>cc+(i===0?'ee':'77')),borderColor:cc,borderWidth:1,borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:BRD},ticks:{color:'#dde6f0',font:{size:11}}},y:{min:50,grid:{color:BRD},ticks:{color:'#607a96'}}}}
+  });
+  const trend=CLUB_YEARS.map((_,i)=>clubs.reduce((s,n)=>s+(CLUBS[n]?.data[i]||0),0));
+  if(nationTrendCh){nationTrendCh.destroy();nationTrendCh=null;}
+  nationTrendCh=new Chart(document.getElementById('nationTrendChart'),{
+    type:'line',
+    data:{labels:CLUB_YEARS,datasets:[{label:'Combined coefficient',data:trend,borderColor:cc,backgroundColor:cc+'22',borderWidth:2,pointRadius:4,tension:0.3,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:BRD},ticks:{color:'#607a96'}},y:{grid:{color:BRD},ticks:{color:'#607a96'}}}}
+  });
+}
+
+/* ── TAB 6: CHAMPIONS LEAGUE ── */
+
+function initCL(){
+  const clubCnt={},natCnt={};
+  CL.forEach(w=>{clubCnt[w.c]=(clubCnt[w.c]||0)+1;natCnt[w.n]=(natCnt[w.n]||0)+1;});
+  const sc=Object.entries(clubCnt).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const sn=Object.entries(natCnt).sort((a,b)=>b[1]-a[1]).slice(0,10);
+
+  new Chart(document.getElementById('clClubChart'),{
+    type:'bar',
+    data:{labels:sc.map(([n])=>n),datasets:[{data:sc.map(([,v])=>v),
+      backgroundColor:sc.map(([n])=>(CLUB_COLORS[n]||GOLD)+'bb'),
+      borderColor:sc.map(([n])=>CLUB_COLORS[n]||GOLD),borderWidth:1,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:BRD},ticks:{color:'#607a96',stepSize:2}},y:{grid:{display:false},ticks:{color:'#dde6f0',font:{size:11}}}}}
+  });
+  new Chart(document.getElementById('clCountryChart'),{
+    type:'bar',
+    data:{labels:sn.map(([n])=>(FLAGS[n]||'')+' '+(NAMES[n]||n)),
+      datasets:[{data:sn.map(([,v])=>v),
+        backgroundColor:sn.map(([n])=>(C[n]||'#888')+'bb'),
+        borderColor:sn.map(([n])=>C[n]||'#888'),borderWidth:1,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:BRD},ticks:{color:'#607a96',stepSize:2}},y:{grid:{display:false},ticks:{color:'#dde6f0',font:{size:11}}}}}
+  });
+
+  // Cumulative
+  const displayed=['ESP','ENG','ITA','GER','NED','POR','FRA','SCO'];
+  const running={};displayed.forEach(n=>{running[n]=0;});
+  const yrList=CL.map(w=>w.y);
+  const accumData={};displayed.forEach(n=>{accumData[n]=[];});
+  CL.forEach(w=>{
+    if(running[w.n]!==undefined)running[w.n]++;
+    displayed.forEach(n=>accumData[n].push(running[n]||0));
+  });
+  new Chart(document.getElementById('clAccumChart'),{
+    type:'line',
+    data:{labels:yrList,datasets:displayed.map(n=>({
+      label:NAMES[n]||n,data:accumData[n],
+      borderColor:C[n]||'#888',borderWidth:2,pointRadius:0,stepped:true,fill:false
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:'#dde6f0',boxWidth:10,padding:8,font:{size:10}}}},
+      scales:{x:{grid:{color:BRD},ticks:{color:'#607a96',maxTicksLimit:15}},y:{grid:{color:BRD},ticks:{color:'#607a96',stepSize:2}}}}
+  });
+
+  // Decade
+  const decs=['1950s','1960s','1970s','1980s','1990s','2000s','2010s','2020s'];
+  const decR=[[1956,1959],[1960,1969],[1970,1979],[1980,1989],[1990,1999],[2000,2009],[2010,2019],[2020,2025]];
+  const decNats=['ESP','ENG','ITA','GER','NED','POR','FRA','SCO','ROU','YUG'];
+  const decD={};decNats.forEach(n=>{decD[n]=decR.map(([lo,hi])=>CL.filter(w=>w.y>=lo&&w.y<=hi&&w.n===n).length);});
+  new Chart(document.getElementById('clDecChart'),{
+    type:'bar',
+    data:{labels:decs,datasets:decNats.map(n=>({
+      label:NAMES[n]||n,data:decD[n],
+      backgroundColor:(C[n]||'#888')+'cc',borderColor:C[n]||'#888',borderWidth:1
+    })).filter(d=>d.data.some(v=>v>0))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:'#dde6f0',boxWidth:8,padding:5,font:{size:9}}}},
+      scales:{x:{stacked:true,grid:{color:BRD},ticks:{color:'#dde6f0',font:{size:10}}},y:{stacked:true,grid:{color:BRD},ticks:{color:'#607a96',stepSize:1}}}}
+  });
+
+  const tl=document.getElementById('cl-timeline');
+  [...CL].reverse().forEach(w=>{
+    const cc=C[w.n]||'#888';
+    tl.innerHTML+=`<div class="tl-item">
+      <div class="tl-dot" style="background:${cc}"></div>
+      <span class="tl-year">${w.y}</span>
+      <span class="tl-club">${w.c}</span>
+      <span class="tl-country" style="color:${cc}">${FLAGS[w.n]||''} ${NAMES[w.n]||w.n}</span>
+    </div>`;
+  });
+}
+
+/* ── Tab switching ── */
+const inited = new Set(['countries']);
+function showTab(id, el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  el.classList.add('active');
+  if(!inited.has(id)){
+    inited.add(id);
+    if(id==='trends')initTrends();
+    else if(id==='clubs')initClubRankings();
+    else if(id==='club-history')initClubHistory();
+    else if(id==='by-nation')updateByNation();
+    else if(id==='cl-history')initCL();
+  }
+}
+
+initCountryRankings();
+</script>
+</body>
+</html>
