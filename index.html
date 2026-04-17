@@ -234,8 +234,8 @@ footer a{color:var(--mut);text-decoration:underline}
 <!-- ── TAB 5: BY NATION ── -->
 <div id="panel-by-nation" class="panel">
 <div class="container">
-  <div class="section-title">Clubs By Nation</div>
-  <div class="section-note">Explore a country's top clubs and their collective coefficient strength</div>
+  <div class="section-title">By Nation</div>
+  <div class="section-note">Deep-dive into any country's UEFA coefficient story — 1960 to present, club breakdown, and Champions League history</div>
   <div class="controls">
     <span style="font-size:11px;color:var(--mut)">Country:</span>
     <select class="ctrl-sel" id="nation-sel" onchange="updateByNation()">
@@ -249,20 +249,78 @@ footer a{color:var(--mut);text-decoration:underline}
     </select>
   </div>
   <div class="stat-strip" id="nation-stats"></div>
+
+  <!-- Association history -->
+  <div class="card">
+    <div class="card-title" id="nation-hist-title">Association coefficient history — 1960–2026</div>
+    <div style="position:relative;width:100%;height:300px">
+      <canvas id="nationHistChart" role="img" aria-label="Association coefficient history"></canvas>
+    </div>
+  </div>
+
+  <!-- Rank + Decade grid -->
   <div class="grid2">
     <div class="card">
-      <div class="card-title" id="nation-club-title">Top clubs from England — current coefficient</div>
-      <div style="position:relative;width:100%;height:300px">
+      <div class="card-title" id="nation-rank-title">UEFA ranking position — 1960–2026</div>
+      <div style="position:relative;width:100%;height:270px">
+        <canvas id="nationRankChart" role="img" aria-label="UEFA ranking position over time"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Performance by decade</div>
+      <div id="nation-decade-tbl"></div>
+    </div>
+  </div>
+
+  <!-- Per-club history -->
+  <div class="card">
+    <div class="card-title" id="nation-club-hist-title">Club coefficient histories — 2010–2026</div>
+    <div style="position:relative;width:100%;height:280px">
+      <canvas id="nationClubHistChart" role="img" aria-label="Per-club coefficient histories"></canvas>
+    </div>
+  </div>
+
+  <!-- Current clubs + stacked contribution -->
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title" id="nation-club-title">Top clubs — current coefficient (2026)</div>
+      <div style="position:relative;width:100%;height:270px">
         <canvas id="nationClubChart" role="img" aria-label="Top clubs from selected nation"></canvas>
       </div>
     </div>
     <div class="card">
-      <div class="card-title">Combined club coefficient over time</div>
-      <div style="position:relative;width:100%;height:300px">
-        <canvas id="nationTrendChart" role="img" aria-label="Combined nation club coefficient over time"></canvas>
+      <div class="card-title">Club contribution to combined total</div>
+      <div style="position:relative;width:100%;height:270px">
+        <canvas id="nationClubStackChart" role="img" aria-label="Stacked club contribution over time"></canvas>
       </div>
     </div>
   </div>
+
+  <!-- Combined trend + CL wins -->
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">Combined club coefficient over time</div>
+      <div style="position:relative;width:100%;height:270px">
+        <canvas id="nationTrendChart" role="img" aria-label="Combined nation club coefficient over time"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" id="nation-cl-title">Champions League wins</div>
+      <div class="timeline" id="nation-cl-timeline" style="max-height:230px"></div>
+    </div>
+  </div>
+
+  <!-- Full history table -->
+  <div class="card">
+    <div class="card-title" id="nation-tbl-title">Full coefficient history — all years</div>
+    <div class="tbl-wrap" style="max-height:380px;overflow-y:auto">
+      <table id="nationHistTable">
+        <thead><tr><th>Year</th><th>Coefficient</th><th>Rank</th><th>vs #1</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <p class="footnote">All data exact from kassiesa.net (1960–2025). Club data 2010–2026.</p>
 </div></div>
 
 <!-- ── TAB 6: CHAMPIONS LEAGUE ── -->
@@ -631,38 +689,191 @@ function initClubHistory(){
 }
 
 /* ── TAB 5: BY NATION ── */
-let nationClubCh=null,nationTrendCh=null;
+let nationHistCh=null,nationRankCh=null,nationClubCh=null,nationTrendCh=null,nationClubHistCh=null,nationClubStackCh=null;
+
 function updateByNation(){
   const nat=document.getElementById('nation-sel').value;
   const clubs=NATION_CLUBS[nat]||[];
-  const latest=clubs.map(n=>({name:n,val:CLUBS[n].data[8]})).sort((a,b)=>b.val-a.val);
   const cc=C[nat]||GOLD;
-  const countryCoef=(HIST[2026]||{})[nat]||'—';
-  const rank=Object.entries(HIST[2026]||{}).sort((a,b)=>b[1]-a[1]).findIndex(([k])=>k===nat)+1;
-  document.getElementById('nation-club-title').textContent=`Top clubs from ${NAMES[nat]||nat} — current coefficient`;
+  const name=NAMES[nat]||nat;
+  const flag=FLAGS[nat]||'';
+
+  // Compute stats
+  let peakVal=0,peakYear=0;
+  HIST_YEARS.forEach(yr=>{const v=(HIST[yr]||{})[nat];if(v&&v>peakVal){peakVal=v;peakYear=yr;}});
+  let yearsAt1=0;
+  HIST_YEARS.forEach(yr=>{const s=HIST[yr]||{};const top=Object.entries(s).sort((a,b)=>b[1]-a[1])[0];if(top&&top[0]===nat)yearsAt1++;});
+  const snap2026=HIST[2026]||{};
+  const countryCoef=snap2026[nat]||null;
+  const sortedAll=Object.entries(snap2026).sort((a,b)=>b[1]-a[1]);
+  const rank=sortedAll.findIndex(([k])=>k===nat)+1;
+  const last10yrs=HIST_YEARS.filter(yr=>yr>=2017&&yr<=2026);
+  const avgRank10=Math.round(last10yrs.reduce((s,yr)=>{
+    const sn=HIST[yr]||{};const sorted=Object.entries(sn).sort((a,b)=>b[1]-a[1]).map(([k])=>k);
+    const r=sorted.indexOf(nat);return s+(r===-1?0:r+1);
+  },0)/last10yrs.length);
+  const clWins=CL.filter(w=>w.n===nat);
+  const latest=clubs.map(n=>({name:n,val:CLUBS[n]?.data[8]||0})).sort((a,b)=>b.val-a.val);
+
+  // Update titles
+  document.getElementById('nation-hist-title').textContent=`${flag} ${name} — association coefficient 1960–2026`;
+  document.getElementById('nation-rank-title').textContent=`${flag} ${name} — UEFA ranking position 1960–2026`;
+  document.getElementById('nation-club-hist-title').textContent=`${flag} ${name} clubs — coefficient history 2010–2026`;
+  document.getElementById('nation-club-title').textContent=`Top clubs from ${name} — 2026`;
+  document.getElementById('nation-cl-title').textContent=`${name} — Champions League wins (${clWins.length})`;
+  document.getElementById('nation-tbl-title').textContent=`${name} — full coefficient history (all years)`;
+
+  // Stat strip (8 stats)
   document.getElementById('nation-stats').innerHTML=`
-    <div class="stat"><div class="s-label">Country rank</div><div class="s-val">#${rank||'?'}</div><div class="s-sub">2026 UEFA ranking</div></div>
-    <div class="stat b"><div class="s-label">5yr coef</div><div class="s-val">${typeof countryCoef==='number'?countryCoef.toFixed(1):countryCoef}</div><div class="s-sub">Association total 2026</div></div>
-    <div class="stat g"><div class="s-label">Clubs in top 20</div><div class="s-val">${clubs.length}</div><div class="s-sub">By current coefficient</div></div>
-    <div class="stat p"><div class="s-label">Top club</div><div class="s-val">${latest[0]?.val.toFixed(0)||'—'}</div><div class="s-sub">${latest[0]?.name||''}</div></div>`;
+    <div class="stat"><div class="s-label">Current rank</div><div class="s-val">#${rank||'?'}</div><div class="s-sub">2026 UEFA ranking</div></div>
+    <div class="stat b"><div class="s-label">2026 coef</div><div class="s-val">${countryCoef?countryCoef.toFixed(1):'—'}</div><div class="s-sub">5yr association total</div></div>
+    <div class="stat g"><div class="s-label">All-time peak</div><div class="s-val">${peakVal.toFixed(1)}</div><div class="s-sub">${peakYear} — highest ever</div></div>
+    <div class="stat p"><div class="s-label">Years at #1</div><div class="s-val">${yearsAt1}</div><div class="s-sub">Of ${HIST_YEARS.length} seasons tracked</div></div>
+    <div class="stat"><div class="s-label">Avg rank (10yr)</div><div class="s-val">#${avgRank10||'?'}</div><div class="s-sub">2017–2026 average</div></div>
+    <div class="stat r"><div class="s-label">CL titles</div><div class="s-val">${clWins.length}</div><div class="s-sub">${clWins.length>0?clWins[0].y+'–'+clWins[clWins.length-1].y:'No titles yet'}</div></div>
+    <div class="stat"><div class="s-label">Top club coef</div><div class="s-val">${latest[0]?.val.toFixed(0)||'—'}</div><div class="s-sub">${latest[0]?.name||''} (2026)</div></div>
+    <div class="stat b"><div class="s-label">Clubs tracked</div><div class="s-val">${clubs.length}</div><div class="s-sub">In top club dataset</div></div>`;
+
+  // 1. Association history chart
+  if(nationHistCh){nationHistCh.destroy();nationHistCh=null;}
+  nationHistCh=new Chart(document.getElementById('nationHistChart'),{
+    type:'line',
+    data:{labels:HIST_YEARS,datasets:[{label:name,data:HIST_YEARS.map(yr=>(HIST[yr]||{})[nat]??null),
+      borderColor:cc,backgroundColor:cc+'22',borderWidth:2.5,pointRadius:1.5,tension:0.3,fill:true}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        annotation:{annotations:{
+          peak:{type:'point',xValue:peakYear,yValue:peakVal,radius:6,backgroundColor:GOLD,borderColor:GOLD,borderWidth:2},
+          peakLbl:{type:'label',xValue:peakYear,yValue:peakVal,yAdjust:-15,content:[peakVal.toFixed(1)+' ('+peakYear+')'],color:GOLD,font:{size:9,weight:'bold'}},
+          ...(nat==='ENG'?{ban:{type:'box',xScaleID:'x',xMin:1985,xMax:1990,backgroundColor:'rgba(255,255,100,0.05)',borderColor:'rgba(255,255,100,0.15)',borderWidth:1}}:{})
+        }}},
+      scales:{x:{grid:{color:BRD},ticks:{color:'#607a96',maxTicksLimit:15}},
+        y:{grid:{color:BRD},ticks:{color:'#607a96'},title:{display:true,text:'5-yr coefficient',color:'#607a96',font:{size:10}}}}}
+  });
+
+  // 2. Rank position chart
+  if(nationRankCh){nationRankCh.destroy();nationRankCh=null;}
+  nationRankCh=new Chart(document.getElementById('nationRankChart'),{
+    type:'line',
+    data:{labels:HIST_YEARS,datasets:[{label:'Rank',
+      data:HIST_YEARS.map(yr=>{const s=HIST[yr]||{};const sorted=Object.entries(s).sort((a,b)=>b[1]-a[1]).map(([k])=>k);const i=sorted.indexOf(nat);return i===-1?null:i+1;}),
+      borderColor:cc,backgroundColor:cc+'22',borderWidth:2,pointRadius:1,tension:0.3,fill:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:BRD},ticks:{color:'#607a96',maxTicksLimit:15}},
+        y:{grid:{color:BRD},ticks:{color:'#607a96',stepSize:1},reverse:true,min:1,
+          title:{display:true,text:'Rank position',color:'#607a96',font:{size:10}}}}}
+  });
+
+  // 3. Decade performance table
+  const decades=[['1960s',1960,1969],['1970s',1970,1979],['1980s',1980,1989],['1990s',1990,1999],['2000s',2000,2009],['2010s',2010,2019],['2020s',2020,2026]];
+  const decRows=decades.map(([lbl,lo,hi])=>{
+    const yrs=HIST_YEARS.filter(yr=>yr>=lo&&yr<=hi);
+    const vals=yrs.map(yr=>(HIST[yr]||{})[nat]||0).filter(v=>v>0);
+    if(!vals.length)return null;
+    const avg=vals.reduce((s,v)=>s+v,0)/vals.length;
+    const max=Math.max(...vals);
+    const maxYr=yrs.find(yr=>((HIST[yr]||{})[nat]||0)===max);
+    const ranks=yrs.map(yr=>{const sn=HIST[yr]||{};const s2=Object.entries(sn).sort((a,b)=>b[1]-a[1]).map(([k])=>k);const i=s2.indexOf(nat);return i===-1?null:i+1;}).filter(r=>r!==null);
+    const avgRk=ranks.length?Math.round(ranks.reduce((s,r)=>s+r,0)/ranks.length):null;
+    return{lbl,avg,max,maxYr,avgRk};
+  }).filter(Boolean);
+  const maxAvg=Math.max(...decRows.map(r=>r.avg));
+  const th='padding:.4rem .6rem;font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--mut);border-bottom:1px solid var(--brd);text-align:left';
+  const td='padding:.42rem .6rem;border-bottom:1px solid rgba(255,255,255,.03)';
+  document.getElementById('nation-decade-tbl').innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr><th style="${th}">Decade</th><th style="${th}">Avg coef</th><th style="${th}">Peak</th><th style="${th}">Avg rank</th></tr></thead>
+    <tbody>${decRows.map(r=>`<tr>
+      <td style="${td};font-weight:600;color:${cc}">${r.lbl}</td>
+      <td style="${td}"><div style="display:flex;align-items:center;gap:6px"><div style="height:4px;width:${(r.avg/maxAvg*80).toFixed(0)}px;background:${cc};border-radius:2px"></div><span style="font-family:'DM Mono',monospace;font-size:11px;color:${cc}">${r.avg.toFixed(1)}</span></div></td>
+      <td style="${td};font-family:'DM Mono',monospace;font-size:11px">${r.max.toFixed(1)} <span style="color:var(--mut)">(${r.maxYr})</span></td>
+      <td style="${td};font-family:'DM Mono',monospace;font-size:11px;color:${r.avgRk<=3?GOLD:'#607a96'}">${r.avgRk?'#'+r.avgRk:'—'}</td>
+    </tr>`).join('')}</tbody></table>`;
+
+  // 4. Per-club history chart
+  if(nationClubHistCh){nationClubHistCh.destroy();nationClubHistCh=null;}
+  nationClubHistCh=new Chart(document.getElementById('nationClubHistChart'),{
+    type:'line',
+    data:{labels:CLUB_YEARS,datasets:clubs.map(n=>({
+      label:n,data:CLUBS[n]?.data||[],
+      borderColor:CLUB_COLORS[n]||(C[nat]||'#888'),
+      backgroundColor:(CLUB_COLORS[n]||(C[nat]||'#888'))+'22',
+      borderWidth:2,pointRadius:3,tension:0.3,fill:false}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:'#dde6f0',boxWidth:10,padding:8,font:{size:10}}}},
+      scales:{x:{grid:{color:BRD},ticks:{color:'#607a96'}},y:{grid:{color:BRD},ticks:{color:'#607a96'}}}}
+  });
+
+  // 5. Current clubs bar chart (horizontal)
   if(nationClubCh){nationClubCh.destroy();nationClubCh=null;}
   nationClubCh=new Chart(document.getElementById('nationClubChart'),{
     type:'bar',
     data:{labels:latest.map(d=>d.name),
-      datasets:[{data:latest.map(d=>d.val),backgroundColor:latest.map((_,i)=>cc+(i===0?'ee':'77')),borderColor:cc,borderWidth:1,borderRadius:6}]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{x:{grid:{color:BRD},ticks:{color:'#dde6f0',font:{size:11}}},y:{min:50,grid:{color:BRD},ticks:{color:'#607a96'}}}}
+      datasets:[{data:latest.map(d=>d.val),
+        backgroundColor:latest.map(d=>(CLUB_COLORS[d.name]||cc)+'cc'),
+        borderColor:latest.map(d=>CLUB_COLORS[d.name]||cc),borderWidth:1,borderRadius:5}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' Coefficient: '+c.parsed.x.toFixed(1)}}},
+      scales:{x:{grid:{color:BRD},ticks:{color:'#607a96'}},y:{grid:{display:false},ticks:{color:'#dde6f0',font:{size:11}}}}}
   });
-  const trend=CLUB_YEARS.map((_,i)=>clubs.reduce((s,n)=>s+(CLUBS[n]?.data[i]||0),0));
+
+  // 6. Stacked club contribution chart
+  if(nationClubStackCh){nationClubStackCh.destroy();nationClubStackCh=null;}
+  nationClubStackCh=new Chart(document.getElementById('nationClubStackChart'),{
+    type:'bar',
+    data:{labels:CLUB_YEARS,datasets:clubs.map(n=>({
+      label:n,data:CLUBS[n]?.data||[],
+      backgroundColor:(CLUB_COLORS[n]||(C[nat]||'#888'))+'cc',
+      borderColor:CLUB_COLORS[n]||(C[nat]||'#888'),borderWidth:1}))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{color:'#dde6f0',boxWidth:8,padding:5,font:{size:9}}}},
+      scales:{
+        x:{stacked:true,grid:{color:BRD},ticks:{color:'#607a96'}},
+        y:{stacked:true,grid:{color:BRD},ticks:{color:'#607a96'},title:{display:true,text:'Combined coefficient',color:'#607a96',font:{size:10}}}}}
+  });
+
+  // 7. Combined trend
   if(nationTrendCh){nationTrendCh.destroy();nationTrendCh=null;}
   nationTrendCh=new Chart(document.getElementById('nationTrendChart'),{
     type:'line',
-    data:{labels:CLUB_YEARS,datasets:[{label:'Combined coefficient',data:trend,borderColor:cc,backgroundColor:cc+'22',borderWidth:2,pointRadius:4,tension:0.3,fill:true}]},
+    data:{labels:CLUB_YEARS,datasets:[{label:'Combined',
+      data:CLUB_YEARS.map((_,i)=>clubs.reduce((s,n)=>s+(CLUBS[n]?.data[i]||0),0)),
+      borderColor:cc,backgroundColor:cc+'22',borderWidth:2,pointRadius:4,tension:0.3,fill:true}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false}},
       scales:{x:{grid:{color:BRD},ticks:{color:'#607a96'}},y:{grid:{color:BRD},ticks:{color:'#607a96'}}}}
   });
+
+  // 8. CL wins timeline
+  const tl=document.getElementById('nation-cl-timeline');
+  tl.innerHTML='';
+  if(!clWins.length){
+    tl.innerHTML='<div style="padding:1.5rem;color:var(--mut);font-size:12px;text-align:center">No Champions League titles</div>';
+  } else {
+    [...clWins].reverse().forEach(w=>{
+      tl.innerHTML+=`<div class="tl-item"><div class="tl-dot" style="background:${GOLD}"></div>
+        <span class="tl-year">${w.y}</span><span class="tl-club">${w.c}</span></div>`;
+    });
+  }
+
+  // 9. Full history table
+  const histRows=[...HIST_YEARS].reverse();
+  document.querySelector('#nationHistTable tbody').innerHTML=histRows.map(yr=>{
+    const val=(HIST[yr]||{})[nat];if(val==null)return'';
+    const sn=HIST[yr]||{};
+    const sorted=Object.entries(sn).sort((a,b)=>b[1]-a[1]);
+    const r=sorted.findIndex(([k])=>k===nat)+1;
+    const leader=sorted[0]?.[1]||1;
+    const isPk=yr===peakYear;
+    return `<tr>
+      <td class="mono" style="color:var(--mut)">${yr}</td>
+      <td><div class="bar-c"><div class="mini-bar" style="width:${(val/leader*120).toFixed(0)}px;background:${cc}${isPk?'':'99'}"></div>
+        <span class="mono" style="color:${isPk?GOLD:cc}">${val.toFixed(1)}${isPk?' ★':''}</span></div></td>
+      <td class="mono" style="color:${r===1?GOLD:r<=3?'#94a3b8':'#607a96'}">${r===1?'🥇':r===2?'🥈':r===3?'🥉':'#'+r}</td>
+      <td class="mono" style="color:#607a96">${r===1?'—':'−'+(leader-val).toFixed(1)}</td>
+    </tr>`;
+  }).join('');
 }
 
 /* ── TAB 6: CHAMPIONS LEAGUE ── */
