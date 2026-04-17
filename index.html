@@ -129,15 +129,20 @@ footer a{color:var(--mut);text-decoration:underline}
       <canvas id="ctryChart" role="img" aria-label="Bar chart of UEFA country coefficients by year"></canvas>
     </div>
   </div>
+  <div class="slider-wrap" style="margin:.75rem 0 .4rem">
+    <label>Year (Big 5 &amp; table)</label>
+    <input type="range" id="lower-slider" min="0" max="66" value="66" oninput="updateLowerSection(+this.value)">
+    <span class="slider-val" id="lower-year-lbl">2026</span>
+  </div>
   <div class="grid2">
     <div class="card">
-      <div class="card-title">Big 5 share of total (2026)</div>
+      <div class="card-title" id="pie-title">Big 5 share of total (2026)</div>
       <div style="position:relative;width:100%;height:240px">
         <canvas id="pieChart" role="img" aria-label="Pie chart of Big 5 league share"></canvas>
       </div>
     </div>
     <div class="card">
-      <div class="card-title">Big 5 vs rest of Europe (2026)</div>
+      <div class="card-title" id="donut-title">Big 5 vs rest of Europe (2026)</div>
       <div style="position:relative;width:100%;height:240px">
         <canvas id="donutChart" role="img" aria-label="Donut chart Big 5 vs rest"></canvas>
       </div>
@@ -325,7 +330,7 @@ function getSnapshot(yrIdx) {
 }
 
 /* ── TAB 1: COUNTRY RANKINGS ── */
-let ctryChart=null;
+let ctryChart=null, pieChart=null, donutChart=null;
 
 function updateCountryChart(idx) {
   const yr = HIST_YEARS[idx];
@@ -333,7 +338,6 @@ function updateCountryChart(idx) {
   const isEst = EST_YEARS.has(yr);
   document.getElementById('ctry-year-lbl').textContent = yr;
   document.getElementById('ctry-title').textContent = `Top country coefficients — ${yr}`;
-  document.getElementById('ctry-tbl-title').textContent = `Rankings table — ${yr}`;
   document.getElementById('ctry-note').textContent = isEst ? '' : '';
 
   if(ctryChart) {
@@ -343,7 +347,6 @@ function updateCountryChart(idx) {
     ctryChart.data.datasets[0].borderColor = data.map(d => d.color);
     ctryChart.update('none');
   }
-  buildCtryTable(data);
 }
 
 function buildCtryTable(data) {
@@ -372,33 +375,64 @@ function initCountryRankings() {
       scales:{x:{grid:{color:BRD},ticks:{color:'#dde6f0',font:{size:11},autoSkip:false}},
         y:{grid:{color:BRD},ticks:{color:'#607a96'}}}}
   });
-  buildCtryTable(data);
-
-  // Pie and donut for 2026
   const b5=['ENG','ITA','ESP','GER','FRA'];
-  const snap2026 = HIST[2026]||{};
-  const b5data = b5.map(c=>({code:c,name:NAMES[c],color:C[c],val:snap2026[c]||0}));
-  const b5tot = b5data.reduce((s,d)=>s+d.val,0);
-  new Chart(document.getElementById('pieChart'),{
+  const snapInit = HIST[2026]||{};
+  const b5dataInit = b5.map(c=>({code:c,name:NAMES[c],color:C[c],val:snapInit[c]||0}));
+  const b5totInit = b5dataInit.reduce((s,d)=>s+d.val,0);
+  const allTotInit = Object.values(snapInit).reduce((s,v)=>s+v,0);
+
+  pieChart = new Chart(document.getElementById('pieChart'),{
     type:'pie',
-    data:{labels:b5data.map(d=>d.name),
-      datasets:[{data:b5data.map(d=>d.val),
-        backgroundColor:b5data.map(d=>d.color+'bb'),
-        borderColor:b5data.map(d=>d.color),borderWidth:1}]},
+    data:{labels:b5dataInit.map(d=>d.name),
+      datasets:[{data:b5dataInit.map(d=>d.val),
+        backgroundColor:b5dataInit.map(d=>d.color+'bb'),
+        borderColor:b5dataInit.map(d=>d.color),borderWidth:1}]},
     options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{position:'bottom',labels:{color:'#dde6f0',boxWidth:10,padding:8,font:{size:10}}},
-        tooltip:{callbacks:{label:c=>' '+c.label+': '+c.parsed.toFixed(1)+' ('+((c.parsed/b5tot)*100).toFixed(1)+'%)'}}}}
+        tooltip:{callbacks:{label:c=>' '+c.label+': '+c.parsed.toFixed(1)+' ('+((c.parsed/b5totInit)*100).toFixed(1)+'%)'}}}}
   });
-  const allTot = Object.values(snap2026).reduce((s,v)=>s+v,0);
-  new Chart(document.getElementById('donutChart'),{
+  donutChart = new Chart(document.getElementById('donutChart'),{
     type:'doughnut',
     data:{labels:['Big 5','Rest of Europe'],
-      datasets:[{data:[b5tot.toFixed(1),(allTot-b5tot).toFixed(1)],
+      datasets:[{data:[b5totInit.toFixed(1),(allTotInit-b5totInit).toFixed(1)],
         backgroundColor:[GOLD+'bb','#334155bb'],
         borderColor:[GOLD,'#475569'],borderWidth:1}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
       plugins:{legend:{position:'bottom',labels:{color:'#dde6f0',boxWidth:10,padding:8,font:{size:10}}}}}
   });
+
+  updateLowerSection(HIST_YEARS.length-1);
+}
+
+function updateLowerSection(yrIdx) {
+  const yr = HIST_YEARS[yrIdx];
+  const snap = HIST[yr]||{};
+  const b5 = ['ENG','ITA','ESP','GER','FRA'];
+  const b5data = b5.map(c=>({code:c,name:NAMES[c],color:C[c],val:snap[c]||0}));
+  const b5tot = b5data.reduce((s,d)=>s+d.val,0);
+  const allTot = Object.values(snap).reduce((s,v)=>s+v,0);
+
+  document.getElementById('lower-year-lbl').textContent = yr;
+  document.getElementById('pie-title').textContent = `Big 5 share of total (${yr})`;
+  document.getElementById('donut-title').textContent = `Big 5 vs rest of Europe (${yr})`;
+  document.getElementById('ctry-tbl-title').textContent = `Rankings table — ${yr}`;
+
+  if(pieChart) {
+    pieChart.data.datasets[0].data = b5data.map(d=>d.val);
+    pieChart.options.plugins.tooltip.callbacks.label = c => ' '+c.label+': '+c.parsed.toFixed(1)+' ('+((c.parsed/b5tot)*100).toFixed(1)+'%)';
+    pieChart.update('none');
+  }
+  if(donutChart) {
+    donutChart.data.datasets[0].data = [b5tot.toFixed(1),(allTot-b5tot).toFixed(1)];
+    donutChart.update('none');
+  }
+
+  const tblData = Object.entries(snap)
+    .filter(([k]) => k !== 'URS' || !snap['RUS'])
+    .sort((a,b) => b[1]-a[1])
+    .slice(0,15)
+    .map(([code,val]) => ({code, name:NAMES[code]||code, flag:FLAGS[code]||'🌍', val, color:C[code]||'#888'}));
+  buildCtryTable(tblData);
 }
 
 /* ── TAB 2: COUNTRY TRENDS ── */
